@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head> 
+  <meta charset="UTF-8" />
+  <title>동전을 받아라!</title>
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  <link rel="stylesheet" href="./assets/css/result-popup.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body, #root { height: 100%; }
+    body { background-color: #fff; }
+    #root { overflow: hidden; }
+
+    /* loading wrap */
+    .plus-loading-wrap {position:fixed; top:0; left:0; width:100%; height:100%; background-color:rgba(20, 24, 28, 0.5); z-index:10000;}
+    .plus-loading-wrap.is-off {display:none;}
+    .plus-loading-wrap .inner-loading-box {position:fixed; top:50%; left:50%; width:128px; height:130px; margin:-65px 0 0 -64px; border-radius:8px; background-color:#FFF;}
+    .plus-loading-wrap .inner-loading-box::before {display:block; position:fixed; top:50%; left:50%; content:''; width:64px; height:64px; margin:-44px 0 0 -32px; border-radius:50%; border:4px solid #E00842; border-top-color:#EBECED; animation:2s spin infinite linear;}
+    .plus-loading-wrap .inner-loading-box::after {display:block; position:absolute; bottom:20px; left:0; content:'Loading'; width:128px; height:18px; text-align:center; font-size:12px; line-height:18px;}
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .cover { position:fixed; inset:0; background:white; }
+  </style>
+</head>
+<body>
+
+  <!-- Phaser 캔버스 영역 -->
+  <div id="root"></div>
+
+  <!-- 캔버스 외부 결과 팝업 (GameBridge 콜백으로 표시) -->
+  <div id="result-popup-root" hidden></div>
+
+  <div class="cover"></div>
+
+  <div class="plus-loading-wrap" id="loading-screen">
+    <div class="inner-loading-box"></div> 
+  </div>
+
+  <script src="./assets/js/phaser.min.js"></script>
+  <script type="module" src="./assets/js/main.js?v=251124"></script>
+</body>
+</html>
