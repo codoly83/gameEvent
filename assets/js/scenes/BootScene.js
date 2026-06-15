@@ -1,11 +1,10 @@
 export default class BootScene extends Phaser.Scene {
   constructor() {
-    super('BootScene');
+    super("BootScene");
   }
 
   preload() {
-	  
-	/*
+    /*
   // 화면 배경 흰색
 	this.cameras.main.setBackgroundColor('#ffffff');
 
@@ -50,88 +49,81 @@ export default class BootScene extends Phaser.Scene {
 	  percentText.setText(Math.round(value * 100) + '%');
 	});
 	*/
-	this.load.on('progress', (value) => {
-		
-	  if(value == 1)
-	  {
-		  document.getElementById("loading-screen").style.display="none";
-		  document.querySelector(".cover").style.display="none";
-	  }
-	  
-	});
-		
-    this.load.image('bg', './assets/images/bg.png');
-    this.load.image('bg_timer', './assets/images/timer-bg.png');
-    this.load.image('title', './assets/images/title.png');
-    this.load.image('piggy_bank', './assets/images/piggy_bank.png');
-    this.load.image('piggy_bank_upper', './assets/images/piggy_bank_upper.png');
-    this.load.image('pig', './assets/images/pig_hole.png');
-    this.load.image('pig_guide', './assets/images/pig_guide.png');
-    this.load.image('coin1', './assets/images/coin-1.png');
-    this.load.image('coin2', './assets/images/coin-2.png');
-    this.load.image('cap', './assets/images/cap.png');
-    this.load.image('arrow', './assets/images/arrow.png');
-    this.load.image('popper', './assets/images/party_popper_30deg.png');
-    this.load.image('instruction_text', './assets/images/instruction-text.png');
-    this.load.image('instruction_text_2', './assets/images/instruction-text-2.png');
-    this.load.image('instruction_score', './assets/images/new/instruction-score.png');
-    this.load.image('start_btn', './assets/images/start-btn.png');
-    this.load.image('go_btn', './assets/images/go-btn-2.png');
-    this.load.image('replay_btn', './assets/images/replay-btn.png');
-    this.load.spritesheet('cdn', './assets/images/countdown-sprite.png', { frameWidth: 282, frameHeight: 365, endFrame: 2 });
+    this.load.on("progress", (value) => {
+      if (value == 1) {
+        document.getElementById("loading-screen").style.display = "none";
+        document.querySelector(".cover").style.display = "none";
+      }
+    });
 
-    
-    this.load.image('particle1', './assets/images/particle1.png');
-    this.load.image('particle2', './assets/images/particle2.png');
-    this.load.image('particle3', './assets/images/particle3.png');
-    this.load.image('particle4', './assets/images/particle4.png');
-    this.load.image('particle5', './assets/images/particle5.png');
-    this.load.image('particle6', './assets/images/particle6.png');
-	
-    this.load.image('guide_text', './assets/images/guide_text.png');
-    this.load.image('START', './assets/images/START.png');
-	
-    this.load.image('close', './assets/images/close5.png');
-    this.load.image('pig_hole_purple', './assets/images/new/pig_hole_purple.png');
-    this.load.image('bad_icon', './assets/images/new/bad_icon.png');
-    this.load.image('good_icon', './assets/images/new/good_icon.png');
-    this.load.image('cloud1', './assets/images/new/cloud 1.png');
-    this.load.image('cloud2', './assets/images/new/cloud 2.png');
-    this.load.image('cloud3', './assets/images/new/cloud 3.png');
-    this.load.image('cloud4', './assets/images/new/cloud 4.png');
+    this.load.image("bg", "./assets/images/bg.png");
+    this.load.image("title", "./assets/images/title.png");
+    this.load.image("piggy_bank", "./assets/images/piggy_bank.png");
+    this.load.image("piggy_bank_upper", "./assets/images/piggy_bank_upper.png");
+    this.load.image("character", "./assets/images/character.png");
+    this.load.image("character_plus", "./assets/images/character_plus.png");
+    this.load.image("character_minus", "./assets/images/character_minus.png");
+    this.load.image("coin", "./assets/images/coin.png");
+    this.load.image("plus1", "./assets/images/plus-1.png");
+    this.load.image("plus2", "./assets/images/plus-2.png");
+    this.load.image("plus3", "./assets/images/plus-3.png");
+    this.load.image("plus4", "./assets/images/plus-4.png");
+    this.load.image("minus1", "./assets/images/minus-1.png");
+    this.load.image("minus2", "./assets/images/minus-2.png");
+    this.load.image("minus3", "./assets/images/minus-3.png");
+    this.load.image("arrow", "./assets/images/arrow.png");
+    this.load.image("popper", "./assets/images/party_popper_30deg.png");
+    this.load.image("instruction_text", "./assets/images/instruction-text.png");
+    this.load.image(
+      "instruction_text_2",
+      "./assets/images/instruction-text-2.png",
+    );
+    this.load.image(
+      "instruction_score",
+      "./assets/images/new/instruction-score.png",
+    );
+    this.load.image("start_btn", "./assets/images/start-btn.png");
+    this.load.image("go_btn", "./assets/images/go-btn-2.png");
+    this.load.image("replay_btn", "./assets/images/replay-btn.png");
+    this.load.spritesheet("cdn", "./assets/images/countdown-sprite.png", {
+      frameWidth: 282,
+      frameHeight: 365,
+      endFrame: 2,
+    });
 
+    this.load.image("particle1", "./assets/images/particle1.png");
+    this.load.image("particle2", "./assets/images/particle2.png");
+    this.load.image("particle3", "./assets/images/particle3.png");
+    this.load.image("particle4", "./assets/images/particle4.png");
+    this.load.image("particle5", "./assets/images/particle5.png");
+    this.load.image("particle6", "./assets/images/particle6.png");
 
-     this.load.audio('click', 'assets/sounds/click.mp3');
-     this.load.audio('coin', 'assets/sounds/coin.mp3');
-     this.load.audio('fail_result', 'assets/sounds/fail_result.mp3');
-     this.load.audio('normal_result', 'assets/sounds/normal_result.mp3');
-     this.load.audio('success_result', 'assets/sounds/success_result.mp3');
-     this.load.audio('wrong', 'assets/sounds/wrong.mp3');
-     this.load.audio('cd', 'assets/sounds/cd_v2.mp3');
-     this.load.audio('start', 'assets/sounds/start_v2.mp3');
-	 
-     this.load.audio('bgm-main', 'assets/sounds/bgm-main.mp3');
-     this.load.audio('bgm-ingame', 'assets/sounds/bgm-ingame.mp3');
-     this.load.audio('bgm-ingame2', 'assets/sounds/bgn-ingame2.mp3');
-     this.load.audio('bgm-ending', 'assets/sounds/bgm-ending.mp3');
-     this.load.audio('hit', 'assets/sounds/hit.mp3');
-	 
+    this.load.image("guide_text", "./assets/images/guide_text.png");
+    this.load.image("timer-bg", "./assets/images/timer-bg.png");
+    this.load.image("START", "./assets/images/START.png");
 
+    this.load.image("bad_icon", "./assets/images/new/bad_icon.png");
+    this.load.image("good_icon", "./assets/images/new/good_icon.png");
+    this.load.image("cloud1", "./assets/images/new/cloud 1.png");
+    this.load.image("cloud2", "./assets/images/new/cloud 2.png");
+    this.load.image("cloud3", "./assets/images/new/cloud 3.png");
+    this.load.image("cloud4", "./assets/images/new/cloud 4.png");
 
-    
-
-
-
+    this.load.audio("coin", "assets/sounds/coin.mp3");
+    this.load.audio("wrong", "assets/sounds/wrong.mp3");
+    this.load.audio("bgm-ingame", "assets/sounds/bgm-ingame.mp3");
   }
 
   async create() {
     try {
       await Promise.all([
-        document.fonts.load('700 50px "Pretendard"'),
+        document.fonts.load('38px "DOSIyagi"'),
+        document.fonts.load('42px "DOSIyagi"'),
+        document.fonts.load('53px "DOSIyagi"'),
+        document.fonts.load('700 50px "DOSIyagi"'),
       ]);
-    } catch(e) {}
-	
-	this.scene.get('BgmManager').playBgm('bgm-main');
-    this.scene.start('StartScene');
+    } catch (e) {}
+
+    this.scene.start("StartScene");
   }
 }

@@ -1,4 +1,4 @@
-import { getResultByScore, playSound, RESULT_ASSETS, RESULT_SOUNDS, SCORE_SEPS } from './ResultData.js';
+import { getResultByScore, RESULT_ASSETS, SCORE_SEPS } from './ResultData.js';
 import { pop2Opener } from './Common.js';
 import { GameBridge } from './GameBridge.js';
 
@@ -9,7 +9,6 @@ export class ResultPopup {
   constructor(rootEl = document.getElementById('result-popup-root')) {
     this.root = rootEl;
     this._confettiTimers = [];
-    this._bgm = null;
     this._build();
   }
 
@@ -55,7 +54,6 @@ export class ResultPopup {
     this.root.querySelector('.result-popup__close').addEventListener('click', () => this.hide());
     this.goBtn.addEventListener('click', () => pop2Opener('goCA', window.openerUrl));
     this.replayBtn.addEventListener('click', () => {
-      playSound(RESULT_SOUNDS.click);
       this.hide();
       pop2Opener('reset', window.openerUrl);
       GameBridge.restartToStart();
@@ -67,10 +65,6 @@ export class ResultPopup {
     this._clearConfetti();
     const result = getResultByScore(score);
     this._score = score;
-
-    playSound(result.sound);
-    this._bgm?.pause();
-    this._bgm = playSound(RESULT_SOUNDS.bgmEnding, { loop: true, volume: 0.5 });
 
     this.icon.src = result.icon;
     this.ageEl.textContent = result.age;
@@ -95,8 +89,6 @@ export class ResultPopup {
     this.root.classList.remove('is-open');
     this.panel.classList.remove('is-pop');
     this._clearConfetti();
-    this._bgm?.pause();
-    this._bgm = null;
     setTimeout(() => { this.root.hidden = true; }, 250);
   }
 

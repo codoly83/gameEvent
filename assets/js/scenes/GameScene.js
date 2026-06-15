@@ -1,18 +1,29 @@
-
-
-import { pop2Opener } from '../Common.js';
-import { GameBridge } from '../GameBridge.js';
-
+import { GameBridge } from "../GameBridge.js";
+import { GameTimer } from "../ui/GameTimer.js";
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
-    super('GameScene');
-    this.gameMs = 30000;//30000;
-    this.spawnDrops = [
-      { start: 0, end: 10000, counts: { coin1: 3, coin2: 15, cap: 12 } },
-      { start: 10000, end: 20000, counts: { coin1: 4, coin2: 20, cap: 20 } },
-      { start: 20000, end: 28200, counts: { coin1: 8, coin2: 30, cap: 34 } }
+    super("GameScene");
+    this.gameMs = 60000;
+    this.dropTypes = [
+      "plus1",
+      "plus2",
+      "plus3",
+      "plus4",
+      "minus1",
+      "minus2",
+      "minus3",
     ];
+    this.spawnCounts = {
+      plus1: 16,
+      plus2: 40,
+      plus3: 20,
+      plus4: 8,
+      minus1: 20,
+      minus2: 12,
+      minus3: 10,
+    };
+    this.spawnEndBufferMs = 2000;
   }
 
   /* ------------------------------------------------
@@ -23,11 +34,20 @@ export default class GameScene extends Phaser.Scene {
     this.totalScore = 0;
     this.combo = 0;
     this._finished = false;
-    this.SCORES = { coin1: 10, coin2: 1, cap: -5 };
+    this.SCORES = {
+      plus1: 0,
+      plus2: 30,
+      plus3: 50,
+      plus4: 100,
+      minus1: -10,
+      minus2: -20,
+      minus3: -30,
+    };
 
     // Player hit state
     this.isHit = false;
     this.stunResetTimer = null;
+    this.characterResetTimer = null;
 
     // Player
     this.controlsEnabled = false;
@@ -35,14 +55,13 @@ export default class GameScene extends Phaser.Scene {
     this.targetX = null;
     this.minX = 40; // 화면 좌/우 마진
     this.maxX = null; // create에서 화면 너비로 계산
-    this.lastX = null; // flip 판정용
     this.followK = 90; // 클수록 빠르게 목표에 수렴
 
     // Spawn
     this.plan = [];
     this.planIdx = 0;
     this.spawnFlip = Math.random() < 0.5 ? -1 : 1;
-    
+
     // CAP Spawn 정책
     this.capBaseP = 0.55; // 기본 추적 확률 55%
     this.capPerCombo = 0.01; // 콤보 1당 1%p 계산 (최대치는 아래 clamp)
@@ -60,34 +79,33 @@ export default class GameScene extends Phaser.Scene {
 
     // 마지막으로 페이지가 숨겨졌을 때 시점
     this.hiddenAt = null;
-    
-     // 페이지 가시성 이벤트 등록
-    document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-            // 숨겨질 때 현재 시간 기록
-            this.hiddenAt = performance.now();
-            this.time.timeScale = 0; // 
-        } else {
-            // 다시 보일 때: 숨겨져 있던 시간만큼 startAt 보정
-            if (this.hiddenAt) {
-                console.log("bf:"+this.startAt)
-                const hiddenDuration =performance.now() - this.hiddenAt;
-                this.startAt += hiddenDuration; // startAt을 뒤로 미룸
-                this.hiddenAt = null;
 
-                //this._lastCapAt += hiddenDuration; // cap 스폰 타이밍도 보정
-                
-                setTimeout(() => {  
-                  this.time.timeScale = 1; // 
-                }, 1)
-            
-              //this.time.timeScale = 1; // 
-            }
+    // 페이지 가시성 이벤트 등록
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        // 숨겨질 때 현재 시간 기록
+        this.hiddenAt = performance.now();
+        this.time.timeScale = 0; //
+      } else {
+        // 다시 보일 때: 숨겨져 있던 시간만큼 startAt 보정
+        if (this.hiddenAt) {
+          console.log("bf:" + this.startAt);
+          const hiddenDuration = performance.now() - this.hiddenAt;
+          this.startAt += hiddenDuration; // startAt을 뒤로 미룸
+          this.hiddenAt = null;
+
+          //this._lastCapAt += hiddenDuration; // cap 스폰 타이밍도 보정
+
+          setTimeout(() => {
+            this.time.timeScale = 1; //
+          }, 1);
+
+          //this.time.timeScale = 1; //
         }
+      }
     });
-	
-	this.scene.get('BgmManager').playBgm('bgm-ingame2');
 
+    this.scene.get("BgmManager").playBgm("bgm-ingame");
   }
 
   /* ------------------------------------------------
@@ -96,36 +114,28 @@ export default class GameScene extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
     this.maxX = width - this.minX;
-    
+
     // bg
-    const bg = this.add.image(width / 2, height / 2, 'bg');
+    const bg = this.add.image(width / 2, height / 2, "bg");
 
     // Clouds
     this.clouds = this.physics.add.group();
     for (let i = 0; i < 5; i++) {
       const cloudKey = `cloud${Phaser.Math.Between(1, 4)}`;
-      const cloud = this.clouds.create(Phaser.Math.Between(0, width), Phaser.Math.Between(50, 800), cloudKey);
+      const cloud = this.clouds.create(
+        Phaser.Math.Between(0, width),
+        Phaser.Math.Between(50, 800),
+        cloudKey,
+      );
       cloud.body.setAllowGravity(false);
-      cloud.setVelocityX(Phaser.Math.Between(20, 60) * (Math.random() > 0.5 ? 1 : -1));
+      cloud.setVelocityX(
+        Phaser.Math.Between(20, 60) * (Math.random() > 0.5 ? 1 : -1),
+      );
       cloud.setAlpha(0.8);
     }
-	
-	
-	
-	
-	
-	const closeBtn = this.add.sprite(width - 20,20, 'close').setOrigin(1,0).setInteractive({ cursor: 'pointer' }).setDepth(102)//this.add.text(20,20,'닫기', { color: '#000', font: '700 40px Pretendard' }).setInteractive({ cursor: 'pointer' });
-	
-	closeBtn.on('pointerup', () => { 
-		pop2Opener('close', openerUrl);
-	})
-	
-	
-	
-	
-	
 
     this.physics.world.setBounds(0, -200, width, height + 400);
+    this.physics.world.gravity.y = 160;
     // this.physics.world.on('worldbounds', (body) => {
     //   const s = body.gameObject;
     //   if (!s || !s.active) return;
@@ -138,85 +148,99 @@ export default class GameScene extends Phaser.Scene {
     //   }
     // }, this);
 
+    let offsetTop = 70;
 
-	let offsetTop = 70
-	
-	this.offsetTop = offsetTop;
-	
-    // timer
-    const timerBg = this.add.image(width / 2, height * 0.064 + offsetTop, 'bg_timer');
-    this.timerGraphicsBg = this.add.graphics().setDepth(5);
-    this.timerGraphicsBg.fillStyle(0xd6d8da, 1);
-    this.timerGraphicsBg.fillRoundedRect(105, 110 + offsetTop, 781, 25, 12);
-    this.timerGraphics = this.add.graphics().setDepth(10);
-    this.timerGraphics.fillStyle(0xe00842, 1);
-    this.timerGraphics.fillRoundedRect(105, 110 + offsetTop, 781, 25, 12);
-    this.timeLeft = this.add.text(945, 125 + offsetTop, `${this.gameMs / 1000}`, { color: '#000', font: '700 50px Pretendard' }).setOrigin(0.5, 0.5);
-    this.timerGroup = this.add.group([timerBg, this.timerGraphicsBg, this.timerGraphics, this.timeLeft]).setDepth(100);
+    this.offsetTop = offsetTop;
 
-    // 누적 score
-    this.totalScoreSprite = this.add.image(885, 245 + offsetTop, 'coin1').setScale(0.46).setOrigin(1, 0.5);
-    this.totalScoreText = this.add.text(1005, 245 + offsetTop, `${this.totalScore}점`, { color: '#e00842', font: '700 60px Pretendard' }).setOrigin(1, 0.5);
-    this.totalScoreGroup = this.add.group([this.totalScoreSprite, this.totalScoreText]);
+    const HUD_LEFT = 60;
+    const HUD_Y = 87;
 
-    // combo (기본 설정만)
-    this.comboText = this.add.text(1005, 315 + offsetTop, `${this.combo} COMBO`, { color: '#333d47', font: '600 40px Pretendard' }).setOrigin(1, 0.5).setVisible(false);
+    // timer (timer-bg.png, 왼쪽 정렬)
+    this.timer = new GameTimer(this, HUD_LEFT, HUD_Y, {
+      anchor: "left",
+      totalSeconds: this.gameMs / 1000,
+    });
+
+    // 점수 (타이머와 같은 라인, 오른쪽)
+    const scoreY = this.timer.centerY;
+    this.scoreRight = width - 60;
+
+    this.totalScoreSprite = this.add
+      .image(this.scoreRight, scoreY, "coin")
+      .setOrigin(1, 0.5)
+      .setDepth(100);
+    this.totalScoreText = this.add
+      .text(0, scoreY, `${this.totalScore}`, {
+        color: "#ffffff",
+        font: "53px DOSIyagi",
+      })
+      .setOrigin(1, 0.5)
+      .setDepth(100);
+    this._layoutScoreHud();
+    this.totalScoreGroup = this.add.group([
+      this.totalScoreSprite,
+      this.totalScoreText,
+    ]);
 
     // character
-    this.player = this.add.sprite(width / 2, height - 140, 'pig_guide').setOrigin(0.5, 1).setDepth(100);
-    this.player.setInteractive({ cursor: 'pointer' });
-    this.player.setFlipX(false);
-    this.lastX = this.player.x;
+    this.player = this.add
+      .sprite(width / 2, height - 280, "character")
+      .setOrigin(0.5, 1)
+      .setDepth(100);
+    this.playerBaseY = height - 280;
+    this.player.setInteractive({ cursor: "pointer" });
 
     // 동전 캐치 센서
-    this.catchSensor = this.add.zone(this.player.x, this.player.y - this.player.displayHeight + 40, 140, 40).setOrigin(0.5, 0.5);
+    this.catchSensor = this.add
+      .zone(
+        this.player.x,
+        this.player.y - this.player.displayHeight + 40,
+        280,
+        40,
+      )
+      .setOrigin(0.5, 0.5);
     this.physics.add.existing(this.catchSensor, true);
 
     // input
-    this.player.on('pointerdown', this.onPointerDown, this);
-    this.input.on('pointermove', this.onPointerMove, this);
-    this.input.on('pointerup', this.onPointerUp, this);
-    this.input.on('pointerupoutside', this.onPointerUp, this);
+    this.player.on("pointerdown", this.onPointerDown, this);
+    this.input.on("pointermove", this.onPointerMove, this);
+    this.input.on("pointerup", this.onPointerUp, this);
+    this.input.on("pointerupoutside", this.onPointerUp, this);
 
-    // 캐릭터 무빙 안내 UI
-    this.instructions = this.makeInstructions(this.player);
+    this.dropsGroup = Object.fromEntries(
+      this.dropTypes.map((type) => [
+        type,
+        this.physics.add.group({ maxSize: 50 }),
+      ]),
+    );
 
-    // coins (기본 설정만)
-    this.dropsGroup = {
-      coin1: this.physics.add.group({ maxSize: 9 }),
-      coin2: this.physics.add.group({ maxSize: 45 }),
-      cap: this.physics.add.group({ maxSize: 36 })
-    };
-
-    // overlap
-    this.physics.add.overlap(this.catchSensor, this.dropsGroup.coin1, (_z, s) => this.onCollect(s, 'coin1'));
-    this.physics.add.overlap(this.catchSensor, this.dropsGroup.coin2, (_z, s) => this.onCollect(s, 'coin2'));
-    this.physics.add.overlap(this.catchSensor, this.dropsGroup.cap, (_z, s) => this.onCollect(s, 'cap'));
+    this.dropTypes.forEach((type) => {
+      this.physics.add.overlap(
+        this.catchSensor,
+        this.dropsGroup[type],
+        (_z, s) => this.onCollect(s, type),
+      );
+    });
 
     // countdown
     this.runCountdown({
       onComplete: async () => {
         await this.fadeOutInstructions(160);
-		this.player.setTexture("pig")
         this.startGame();
-      }
+      },
     });
-	
-	
-	
-	
-	
-	
-	 this.emitter = this.add.particles(0, 0, 'particle1', {
-            lifespan: 4000,
-            speed: { min: 200, max: 350 },
-            alpha: { start: 1, end: 0 },
-            scale: { start: 0.7, end: 1.3 },
-            rotate: { start: 0, end: 360 },
-            gravityY: 200,
-            emitting: false
-     }).setDepth(101);
 
+    this.emitter = this.add
+      .particles(0, 0, "particle1", {
+        lifespan: 4000,
+        speed: { min: 200, max: 350 },
+        alpha: { start: 1, end: 0 },
+        scale: { start: 0.7, end: 1.3 },
+        rotate: { start: 0, end: 360 },
+        gravityY: 200,
+        emitting: false,
+      })
+      .setDepth(101);
   }
 
   /* ------------------------------------------------
@@ -230,7 +254,7 @@ export default class GameScene extends Phaser.Scene {
     this.timerEvt = this.time.addEvent({
       delay: 100,
       loop: true,
-      callback: () => this.updateTimer()
+      callback: () => this.updateTimer(),
     });
 
     // 코인 스폰
@@ -243,6 +267,7 @@ export default class GameScene extends Phaser.Scene {
     this._finished = true;
     this.controlsEnabled = false;
     this.timerEvt?.remove(false);
+    this.scene.get("BgmManager").stopBgm();
 
     this.time.delayedCall(300, () => {
       GameBridge.emitGameEnd(this.totalScore);
@@ -252,33 +277,14 @@ export default class GameScene extends Phaser.Scene {
   /** 테스트용 – 지정 점수로 게임 종료 (GameBridge.forceGameEnd) */
   forceFinish(score) {
     this.totalScore = score;
-    this.totalScoreText?.setText(`${this.totalScore}점`);
+    this.totalScoreText?.setText(`${this.totalScore}`);
+    this._layoutScoreHud?.();
     this.finishGame();
   }
 
-  /* ------------------------------------------------
-   * Instructions
-   * ----------------------------------------------*/
-  makeInstructions(anchor) {
-    const group = this.add.container(0, 0).setDepth(60).setPosition(anchor.x, anchor.y);
-    
-    const leftArrow = this.add.image(-230, -96, 'arrow').setOrigin(0.5, 1);
-    const rightArrow = this.add.image(200, -96, 'arrow').setOrigin(0.5, 1);
-	
-    const guideTxt = this.add.image(0, -260, 'guide_text').setOrigin(0.5, 1);
-	
-    rightArrow.flipX = true;
-
-    const text = this.add.image(0, 30, 'instruction_text_2');
-
-    group.add([leftArrow, rightArrow, text, guideTxt]);
-
-    return group;
-  }
-
   async fadeOutInstructions(dur = 180) {
-    if(!this.instructions) return;
-    await new Promise(res => {
+    if (!this.instructions) return;
+    await new Promise((res) => {
       this.tweens.add({
         targets: this.instructions,
         alpha: 0,
@@ -287,7 +293,7 @@ export default class GameScene extends Phaser.Scene {
           this.instructions.destroy();
           this.instructions = null;
           res();
-        }
+        },
       });
     });
   }
@@ -300,54 +306,43 @@ export default class GameScene extends Phaser.Scene {
     const cx = x ?? this.scale.width / 2;
     const cy = y ?? this.scale.height / 2;
 
-    const spr = this.add.sprite(cx, cy, 'cdn', order[0]).setDepth(100);
-
-    this.sound.play('cd');
+    const spr = this.add.sprite(cx, cy, "cdn", order[0]).setDepth(100);
 
     let i = 0;
     const cdnEvt = this.time.addEvent({
       delay: 1000,
       repeat: order.length - 1,
       callback: () => {
-        
         i++;
         spr.setFrame(order[i]);
-        this.sound.play('cd');
 
-        if(i === order.length - 1) {
+        if (i === order.length - 1) {
+          cdnEvt.remove(false);
 
-          cdnEvt.remove(false)
-		  
-		  
-          this.time.delayedCall(1000, () => { 
+          this.time.delayedCall(1000, () => {
+            spr.setTexture("START");
+            spr.setScale(0.5);
 
-            
-		  spr.setTexture("START")
-		  spr.setScale(0.5);
-		  
-		   this.time.delayedCall(1000, () => { 
+            this.time.delayedCall(1000, () => {
+              spr.destroy();
+            });
 
-            
-			  spr.destroy();
-
+            onComplete();
           });
-		  
-		  
-		  
-          this.sound.play('start');
-           onComplete(); 
-
-          });
+        } else {
         }
-        else {
-          
-          
-        } 
-      }
+      },
     });
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => cdnEvt.remove(false));
     this.events.once(Phaser.Scenes.Events.DESTROY, () => cdnEvt.remove(false));
+  }
+
+  _layoutScoreHud() {
+    const gap = 12;
+    this.totalScoreText.x = this.scoreRight;
+    this.totalScoreSprite.x =
+      this.scoreRight - this.totalScoreText.displayWidth - gap;
   }
 
   /* ------------------------------------------------
@@ -355,50 +350,60 @@ export default class GameScene extends Phaser.Scene {
    * ----------------------------------------------*/
   updateTimer() {
     const elapsed = this.time.now - this.startAt;
-    const p = Phaser.Math.Clamp(1 - (elapsed / this.gameMs), 0, 1);
+    const remainingP = Phaser.Math.Clamp(1 - elapsed / this.gameMs, 0, 1);
+    const fillP = Phaser.Math.Clamp(elapsed / this.gameMs, 0, 1);
 
-    const sec = Math.max(0, Math.ceil((this.gameMs * p) / 1000));
-    this.timeLeft.setText(`${sec}`);
+    const sec = Math.max(0, Math.ceil((this.gameMs * remainingP) / 1000));
+    this.timer.update(fillP, sec);
 
-    this.drawTimerBar(p);
-
-    if(p <= 0) this.finishGame();
-  }
-
-  drawTimerBar(p) {
-    const fullW = 781, x = 105, y = 110, h = 25, baseR = 12;
-    const w = Math.max(0, Math.round(fullW * p));
-
-    this.timerGraphics.clear();
-    if(w <= 0) return;
-
-    this.timerGraphics.fillStyle(0xe00842, 1);
-    const r = Math.min(baseR, Math.floor(w / 2));
-    this.timerGraphics.fillRoundedRect(x, y + this.offsetTop, w, h, r);
+    if (remainingP <= 0) this.finishGame();
   }
 
   /* ------------------------------------------------
    * Spawn Plan & CAP X 계산
    * ----------------------------------------------*/
-  makeSpawnPlan() { // 구간을 동등 분할한 뒤 각 슬롯 중앙에서 +-25% 정도 지터 추가
-    const mkTimes = (n, start, end) => {
-      if(n <= 0) return [];
-      const dt = (end - start) / n;
-      return Array.from({ length: n }, (_, i) => {
-        const base = start + i * dt + dt * 0.5; // i번째 칸의 정중앙 시각
-        const jitter = Phaser.Math.Between(-dt * 0.25, dt * 0.25);
-        return Math.max(start, Math.min(end - 1, base + jitter));
-      });
-    };
-
+  makeSpawnPlan() {
     this.plan.length = 0;
-    for(const win of this.spawnDrops) {
-      ['coin1', 'coin2', 'cap'].forEach(type => {
-        mkTimes(win.counts[type], win.start, win.end)
-          .forEach(t => this.plan.push({ t, type }));
-      });
+
+    const entries = [];
+    for (const type of this.dropTypes) {
+      const n = this.spawnCounts[type] ?? 0;
+      for (let i = 0; i < n; i++) entries.push(type);
     }
-    this.plan.sort((a, b) => a.t - b.t);
+    if (entries.length === 0) return;
+
+    const types = this._spreadTypes(entries);
+    const spawnEnd = this.gameMs - this.spawnEndBufferMs;
+    const interval = spawnEnd / types.length;
+
+    types.forEach((type, i) => {
+      this.plan.push({ t: i * interval + interval * 0.5, type });
+    });
+  }
+
+  /** 동일 타입이 연속으로 몰리지 않게 라운드로빈 배치 */
+  _spreadTypes(types) {
+    const remaining = {};
+    for (const type of types) {
+      remaining[type] = (remaining[type] ?? 0) + 1;
+    }
+
+    const order = Object.keys(remaining).sort(
+      (a, b) => remaining[b] - remaining[a],
+    );
+    const result = [];
+
+    while (result.length < types.length) {
+      for (const type of order) {
+        if (remaining[type] > 0) {
+          result.push(type);
+          remaining[type]--;
+        }
+      }
+      order.sort((a, b) => remaining[b] - remaining[a]);
+    }
+
+    return result;
   }
 
   getCapSpawnX() {
@@ -406,22 +411,26 @@ export default class GameScene extends Phaser.Scene {
     const margin = 40;
     const now = this.time.now;
 
-    const canAggro = (now - this._lastCapAt) >= this.capCooldown;
-    const p = Math.min(this.capMaxP, this.capBaseP + this.combo * this.capPerCombo);
+    const canAggro = now - this._lastCapAt >= this.capCooldownMs;
+    const p = Math.min(
+      this.capMaxP,
+      this.capBaseP + this.combo * this.capPerCombo,
+    );
     const doAggro = canAggro && Math.random() < p;
 
     let x;
     if (doAggro) {
       // 추적: 예측 + 지터 + 최소 이격
       // 목표 보간 예측: 현재 x → 현재 targetX 사이를 capLead 만큼
-      const target = (this.dragging && this.targetX != null)
-        ? Phaser.Math.Clamp(this.targetX, this.minX, this.maxX)
-        : this.player.x;
+      const target =
+        this.dragging && this.targetX != null
+          ? Phaser.Math.Clamp(this.targetX, this.minX, this.maxX)
+          : this.player.x;
       const t = Phaser.Math.Clamp(this.capLead, 0, 1);
       const predicted = Phaser.Math.Linear(this.player.x, target, t);
 
       // 예측점 주변으로 지터
-      x = predicted + Phaser.Math.Between(-this.capJitter, this.capJitter);
+      x = predicted + Phaser.Math.Between(-this.capJitterX, this.capJitterX);
 
       // 최소 이격 (플레이어의 바로 위 금지, 왼/오로 밀어내기)
       const dx = x - this.player.x;
@@ -447,17 +456,16 @@ export default class GameScene extends Phaser.Scene {
    * Spawn One
    * ----------------------------------------------*/
   spawnOne(type) {
-    console.log("spawnOne:"+type)
     const w = this.scale.width;
     const margin = 40;
 
     let x;
-    if(type === 'cap') {
+    if (type.startsWith("minus")) {
       x = this.getCapSpawnX();
     } else {
       // 코인: 좌<->우 번갈이 + 지터
       this.spawnFlip *= -1;
-      const sideX = this.spawnFlip < 0 ? margin : (w - margin);
+      const sideX = this.spawnFlip < 0 ? margin : w - margin;
       x = Phaser.Math.Linear(sideX, w - sideX, Math.random());
       x += Phaser.Math.Between(-80, 80);
       x = Phaser.Math.Clamp(x, margin, w - margin);
@@ -467,22 +475,38 @@ export default class GameScene extends Phaser.Scene {
     const y = -Phaser.Math.Between(90, 160);
 
     const grp = this.dropsGroup[type];
-    // 풀에서 꺼내 활성화
     const s = grp.get(x, y, type);
-    if(!s) return;
-    s.setActive(true).setVisible(true).setPosition(x, y).setDepth(10).setAngle(Phaser.Math.Between(-10, 10));
+    if (!s) return;
+
+    s.setActive(true).setVisible(true).setAlpha(1);
+    s.setPosition(x, y);
+    s.setDepth(10);
+    s.setAngle(Phaser.Math.Between(-10, 10));
+
+    if (s.body) {
+      s.enableBody(true, x, y, true, true);
+      s.body.reset(x, y);
+      s.body.setAllowGravity(true);
+      s.body.setVelocity(0, 0);
+      s.body.setAngularVelocity(0);
+    }
 
     // 낙하 느낌 (cap이 더 빠르고 회전도 조금 큼)
-    s.body.setAllowGravity(true);
-    if(type === 'cap') {
+    if (type.startsWith("minus")) {
       s.setVelocity(
-        Phaser.Math.Between((-s.x < this.scale.width/2 ? -0 : -80), (-s.x < this.scale.width/2 ? 80 : 0)),
-        Phaser.Math.Between(200, 600)
+        Phaser.Math.Between(
+          -s.x < this.scale.width / 2 ? -0 : -50,
+          -s.x < this.scale.width / 2 ? 50 : 0,
+        ),
+        Phaser.Math.Between(70, 200),
       );
     } else {
       s.setVelocity(
-        Phaser.Math.Between((-s.x < this.scale.width/2 ? -0 : -60), (-s.x < this.scale.width/2 ? 60 : 0)),
-        Phaser.Math.Between(160, 520)
+        Phaser.Math.Between(
+          -s.x < this.scale.width / 2 ? -0 : -40,
+          -s.x < this.scale.width / 2 ? 40 : 0,
+        ),
+        Phaser.Math.Between(60, 170),
       );
     }
     s.setAngularVelocity(Phaser.Math.Between(-120, 120));
@@ -492,102 +516,123 @@ export default class GameScene extends Phaser.Scene {
   /* ------------------------------------------------
    * Score
    * ----------------------------------------------*/
-    onCollect(sprite, type) {
+  onCollect(sprite, type) {
     // 게임 종료 후 처리
     if (!this.controlsEnabled) {
-      if(sprite.active) sprite.disableBody(true, true);
+      if (sprite.active) sprite.disableBody(true, true);
       return;
     }
 
     sprite.disableBody(true, true);
 
-    const isCoin = (type === 'coin1' || type === 'coin2');
+    const isPlus = type.startsWith("plus");
 
-    if (isCoin) {
-      // 코인 로직
+    if (isPlus) {
       this.combo++;
-      this.sound.play('coin');
-      this.emitter.emitParticleAt(this.player.x, this.player.y-200, 4);
+      this.sound.play("coin", { volume: 0.4 });
+      this.emitter.emitParticleAt(this.player.x, this.player.y - 200, 4);
 
-      let delta = this.SCORES[type];
-      const c = this.combo;
-      let bonus = 0;
-      if(c >= 21) bonus = 5;
-      else if(c >= 16) bonus = 4;
-      else if(c >= 11) bonus = 3;
-      else if(c >= 6) bonus = 2;
-      else if(c >= 1) bonus = 1;
-      delta += bonus;
-
+      const delta = this.SCORES[type];
       this.totalScore += delta;
-      this.emitScorePopup(this.player.x, this.player.y - this.player.displayHeight + 12, `+${delta}`, '#259e03');
-
-    } else { // cap 로직
+      this.setPlayerFace("character_plus", 500);
+      this.emitScorePopup(
+        this.player.x,
+        this.player.y - this.player.displayHeight + 12,
+        `+${delta}`,
+        "#e00842",
+      );
+    } else {
       this.combo = 0;
-      this.sound.play('hit');
-      
-      this.totalScore += this.SCORES[type];
-      this.emitScorePopup(this.player.x, this.player.y - this.player.displayHeight + 12, `${this.SCORES[type]}`, '#e32155');
+      this.sound.play("wrong", { volume: 0.4 });
+
+      const delta = this.SCORES[type];
+      this.totalScore += delta;
+      this.emitScorePopup(
+        this.player.x,
+        this.player.y - this.player.displayHeight + 12,
+        `${delta}`,
+        "#333d47",
+      );
 
       // 스턴 효과 적용/재적용
       if (this.stunResetTimer) {
         this.stunResetTimer.remove(false);
       }
+      if (this.characterResetTimer) {
+        this.characterResetTimer.remove(false);
+        this.characterResetTimer = null;
+      }
       this.tweens.killTweensOf(this.player);
 
       this.isHit = true;
-      this.player.setTexture('pig_hole_purple');
-      this.player.setAlpha(1); // 이전 트윈에서 알파가 이상하게 남아있을 수 있으므로 초기화
+      this.player.setTexture("character_minus");
+      this.player.setAlpha(1);
+      this.player.y = this.playerBaseY;
       this.followK = 4;
 
       // 깜빡임
       this.tweens.add({
-          targets: this.player,
-          alpha: 0.3,
-          duration: 200,
-          ease: 'Cubic.easeInOut',
-          yoyo: true,
-          repeat: 4
-      });
-
-      // 진동
-      this.tweens.add({
-          targets: this.player,
-          y: this.player.y - 10,
-          duration: 100,
-          ease: 'Sine.easeInOut',
-          yoyo: true,
-          repeat: 9
+        targets: this.player,
+        alpha: 0.3,
+        duration: 200,
+        ease: "Cubic.easeInOut",
+        yoyo: true,
+        repeat: 4,
       });
 
       this.stunResetTimer = this.time.delayedCall(2000, () => {
-          this.isHit = false;
-          this.player.setTexture('pig');
-          this.followK = 90;
-          this.player.setAlpha(1);
-          this.player.y = this.scale.height - 140;
-          this.stunResetTimer = null;
+        this.isHit = false;
+        this.player.setTexture("character");
+        this.followK = 90;
+        this.player.setAlpha(1);
+        this.player.y = this.playerBaseY;
+        this.stunResetTimer = null;
       });
     }
 
-    // 점수 및 콤보 텍스트 업데이트 (공통)
-    if(this.totalScore < 0) this.totalScore = 0;
-    this.totalScoreText.setText(`${this.totalScore}점`);
-    this.totalScoreSprite.x = this.totalScoreText.x - this.totalScoreText.displayWidth - 28;
-    
-    this.comboText.setVisible(this.combo > 0);
-    this.comboText.setText(`${this.combo} COMBO`);
+    // 점수 업데이트 (공통)
+    if (this.totalScore < 0) this.totalScore = 0;
+    this.totalScoreText.setText(`${this.totalScore}`);
+    this._layoutScoreHud();
+  }
+
+  setPlayerFace(textureKey, duration = 0) {
+    if (this.characterResetTimer) {
+      this.characterResetTimer.remove(false);
+      this.characterResetTimer = null;
+    }
+
+    if (!this.isHit) {
+      this.player.setTexture(textureKey);
+    }
+
+    if (duration > 0 && !this.isHit) {
+      this.characterResetTimer = this.time.delayedCall(duration, () => {
+        if (!this.isHit) {
+          this.player.setTexture("character");
+        }
+        this.characterResetTimer = null;
+      });
+    }
   }
 
   emitScorePopup(x, y, text, color) {
-    const t = this.add.text(x, y, text, {
-      font: '600 54px Pretendard',
-      color: color,
-    }).setOrigin(0, 0.5).setDepth(105);
+    const t = this.add
+      .text(x, y, text, {
+        font: "600 54px DOSIyagi",
+        color: color,
+      })
+      .setOrigin(0, 0.5)
+      .setDepth(105);
 
     this.tweens.add({
-      targets: t, y: y - 80, alpha: 0, scale: 1.2, duration: 700, ease: 'Cubic.Out',
-      onComplete: () => t.destroy()
+      targets: t,
+      y: y - 80,
+      alpha: 0,
+      scale: 1.2,
+      duration: 700,
+      ease: "Cubic.Out",
+      onComplete: () => t.destroy(),
     });
   }
 
@@ -595,13 +640,13 @@ export default class GameScene extends Phaser.Scene {
    * Input & Movement
    * ----------------------------------------------*/
   onPointerDown(pointer) {
-    if(!this.controlsEnabled) return;
+    if (!this.controlsEnabled) return;
     this.dragging = true;
     this.targetX = pointer.worldX ?? pointer.x;
   }
 
   onPointerMove(pointer) {
-    if(!this.controlsEnabled || !this.dragging) return;
+    if (!this.controlsEnabled || !this.dragging) return;
     this.targetX = pointer.worldX ?? pointer.x;
   }
 
@@ -614,40 +659,41 @@ export default class GameScene extends Phaser.Scene {
    * Update
    * ----------------------------------------------*/
   update(_time, delta) {
-    if(this.time.timeScale === 0) return; // 탭 비활성화될 때 튈 수 있음 방지
+    if (this.time.timeScale === 0) return; // 탭 비활성화될 때 튈 수 있음 방지
 
-    const dt = Math.min(delta / 1000, 0.033);  // 탭 비활성화될 때 튈 수 있음 방지
+    const dt = Math.min(delta / 1000, 0.033); // 탭 비활성화될 때 튈 수 있음 방지
 
-    if(this.controlsEnabled) {
+    if (this.controlsEnabled) {
       // 목표 있을 때만 x축 가속도 적용(스프링 + 감쇠)
-      if(this.controlsEnabled) {
-        if(this.dragging && this.targetX != null) {
+      if (this.controlsEnabled) {
+        if (this.dragging && this.targetX != null) {
           const desired = Phaser.Math.Clamp(this.targetX, this.minX, this.maxX);
           const dx = desired - this.player.x;
           const a = 1 - Math.exp(-this.followK * dt);
           this.player.x += dx * a;
-          if(Math.abs(dx) < 0.3) this.player.x = desired; // 미세 스냅
+          if (Math.abs(dx) < 0.3) this.player.x = desired; // 미세 스냅
         }
 
         // 경계
         this.player.x = Phaser.Math.Clamp(this.player.x, this.minX, this.maxX);
-
-        // character flip
-        const moved = this.player.x - this.lastX;
-        if(Math.abs(moved) > 0.1) this.player.setFlipX(moved > 0);
-        this.lastX = this.player.x;
       }
-        
+
       // catchSensor를 player와 동기화
-      if(this.catchSensor) {
-        this.catchSensor.setPosition(this.player.x, this.player.y - this.player.displayHeight + 20);
+      if (this.catchSensor) {
+        this.catchSensor.setPosition(
+          this.player.x,
+          this.player.y - this.player.displayHeight + 20,
+        );
         this.catchSensor.body.updateFromGameObject();
       }
 
-      // 계획된 스폰 처리(인덱스 스텝)
+      // 계획된 스폰 처리 (밀린 스폰은 프레임당 여러 개 catch-up)
       if (this.controlsEnabled && this.planIdx < this.plan.length) {
         const t = this.time.now - this.startAt;
-        while (this.planIdx < this.plan.length && t >= this.plan[this.planIdx].t) {
+        while (
+          this.planIdx < this.plan.length &&
+          t >= this.plan[this.planIdx].t
+        ) {
           this.spawnOne(this.plan[this.planIdx].type);
           this.planIdx++;
         }
@@ -655,15 +701,15 @@ export default class GameScene extends Phaser.Scene {
 
       // 화면 밖으로 떨어진 낙하물 회수
       const h = this.scale.height;
-      ['coin1', 'coin2', 'cap'].forEach(k => {
-        this.dropsGroup[k].children.iterate(s => {
-          if(s && s.active && s.y > h + 130) s.disableBody(true, true);
+      this.dropTypes.forEach((k) => {
+        this.dropsGroup[k].children.iterate((s) => {
+          if (s && s.active && s.y > h + 130) s.disableBody(true, true);
         });
       });
 
       // 구름 이동 처리
       const w = this.scale.width;
-      this.clouds.children.iterate(cloud => {
+      this.clouds.children.iterate((cloud) => {
         if (cloud.x > w + cloud.width) {
           cloud.x = -cloud.width;
         } else if (cloud.x < -cloud.width) {
@@ -676,14 +722,15 @@ export default class GameScene extends Phaser.Scene {
   /* ------------------------------------------------
    * Cleanup
    * ----------------------------------------------*/
-  shutdown() { this.finishGame(); }
-  destroy()  { this.finishGame(); }
-
-
-  restartGame() {
-        // 게임 씬 재시작
-        this.scene.restart();
+  shutdown() {
+    this.timerEvt?.remove(false);
+  }
+  destroy() {
+    this.timerEvt?.remove(false);
   }
 
-
+  restartGame() {
+    // 게임 씬 재시작
+    this.scene.restart();
+  }
 }

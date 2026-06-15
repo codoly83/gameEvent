@@ -18,16 +18,7 @@ export const RESULT_ASSETS = {
   ],
 };
 
-export const RESULT_SOUNDS = {
-  fail: './assets/sounds/fail_result.mp3',
-  normal: './assets/sounds/normal_result.mp3',
-  success: './assets/sounds/success_result.mp3',
-  click: './assets/sounds/click.mp3',
-  bgmEnding: './assets/sounds/bgm-ending.mp3',
-  bgmMain: './assets/sounds/bgm-main.mp3',
-};
-
-/** @returns {{ tier: 'fail'|'normal'|'success', age: string, content: string, icon: string, sound: string }} */
+/** @returns {{ tier: 'fail'|'normal'|'success', age: string, content: string, icon: string }} */
 export function getResultByScore(score) {
   if (score <= SCORE_SEPS[0]) {
     return {
@@ -35,7 +26,6 @@ export function getResultByScore(score) {
       age: '[43세]',
       content: '조금 아쉬운 순발력이네요😢\n\n지금이 딱 점검할 타이밍!\n건강과 보장을 확인해 보세요!',
       icon: RESULT_ASSETS.badIcon,
-      sound: RESULT_SOUNDS.fail,
     };
   }
   if (score <= SCORE_SEPS[1]) {
@@ -44,7 +34,6 @@ export function getResultByScore(score) {
       age: '[29세]',
       content: '살짝 아쉽지만 괜찮은 반사신경이에요😊\n\n순발력 만큼 건강과 보장도\n상위권인지 확인해 보세요!',
       icon: RESULT_ASSETS.goodIcon,
-      sound: RESULT_SOUNDS.normal,
     };
   }
   return {
@@ -52,14 +41,5 @@ export function getResultByScore(score) {
     age: '[17세]',
     content: '집중력과 민첩성이 아주 뛰어나요👏\n\n건강과 보장도 신체 나이만큼\n젊고 튼튼한지 체크해 보세요!',
     icon: RESULT_ASSETS.popper,
-    sound: RESULT_SOUNDS.success,
   };
-}
-
-export function playSound(src, { loop = false, volume = 1 } = {}) {
-  const audio = new Audio(src);
-  audio.volume = volume;
-  audio.loop = loop;
-  audio.play().catch(() => {});
-  return audio;
 }
